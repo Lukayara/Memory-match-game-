@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memory Game</title>
+  <style>
+    :root {
+      --ink: #f7f4ec;
+      --muted: #b8b2a3;
+      --paper: #181916;
+      --panel: rgba(255, 252, 240, 0.08);
+      --panel-strong: rgba(255, 252, 240, 0.14);
+      --line: rgba(255, 252, 240, 0.18);
+      --mint: #69d49f;
+      --coral: #ff6f61;
+      --gold: #ffd166;
+      --blue: #6ea8ff;
+      --violet: #b98cff;
+      --shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 14% 14%, rgba(255, 111, 97, 0.33), transparent 28%),
+        radial-gradient(circle at 84% 8%, rgba(105, 212, 159, 0.28), transparent 30%),
+        radial-gradient(circle at 58% 88%, rgba(110, 168, 255, 0.24), transparent 34%),
+        linear-gradient(135deg, #10130f 0%, #191711 42%, #10151a 100%);
+      color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      background-size: 54px 54px;
+      mask-image: radial-gradient(circle at center, black, transparent 74%);
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .game {
+      width: min(1040px, calc(100vw - 28px));
+      padding: clamp(18px, 3vw, 32px);
+      position: relative;
+      z-index: 1;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 20px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2.1rem, 5vw, 4.5rem);
+      line-height: 0.95;
+      letter-spacing: 0;
+      text-wrap: balance;
+      text-shadow: 0 16px 38px rgba(0, 0, 0, 0.42);
+    }
+
+    .eyebrow {
+      width: fit-content;
+      margin-bottom: 12px;
+      padding: 7px 10px;
+      border: 1px solid rgba(255, 252, 240, 0.16);
+      border-radius: 8px;
+      background: rgba(255, 252, 240, 0.09);
+      color: var(--gold);
+      font-size: 0.76rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(0.95rem, 2vw, 1.1rem);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 252, 240, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 46px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(18px);
+    }
+
+    .pill,
+    .icon-button {
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 252, 240, 0.08);
+      color: var(--ink);
+      cursor: pointer;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.16);
+      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .pill {
+      padding: 0 14px;
+      font-weight: 700;
+    }
+
+    .pill[aria-pressed="true"] {
+      background: linear-gradient(135deg, var(--gold), #ff9f5a);
+      border-color: rgba(255, 209, 102, 0.74);
+      color: #221c10;
+      box-shadow: 0 12px 26px rgba(255, 159, 90, 0.26);
+    }
+
+    .icon-button {
+      width: 46px;
+      display: grid;
+      place-items: center;
+    }
+
+    .pill:hover,
+    .icon-button:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 252, 240, 0.42);
+      background: rgba(255, 252, 240, 0.14);
+    }
+
+    .icon-button svg {
+      width: 21px;
+      height: 21px;
+      stroke-width: 2.2;
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .stat {
+      min-height: 82px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(255, 252, 240, 0.14), rgba(255, 252, 240, 0.06)),
+        rgba(255, 252, 240, 0.05);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(16px);
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 7px;
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      line-height: 1;
+      color: #ffffff;
+    }
+
+    .board-wrap {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background:
+        linear-gradient(135deg, rgba(255, 252, 240, 0.14), rgba(255, 252, 240, 0.045)),
+        rgba(14, 14, 12, 0.58);
+      padding: clamp(12px, 2.2vw, 22px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(24px);
+    }
+
+    .board-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+      transform: translateX(-100%);
+      animation: sheen 7s ease-in-out infinite;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(var(--columns), minmax(58px, 1fr));
+      gap: clamp(8px, 1.5vw, 14px);
+      position: relative;
+      z-index: 1;
+    }
+
+    .card {
+      position: relative;
+      aspect-ratio: 1;
+      border: 0;
+      border-radius: 8px;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+      perspective: 900px;
+      animation: cardIn 420ms ease both;
+    }
+
+    .card[disabled] {
+      cursor: default;
+    }
+
+    .card-inner {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      transition: transform 430ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .card:hover .card-inner {
+      transform: translateY(-4px);
+    }
+
+    .card.is-flipped .card-inner,
+    .card.is-matched .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .face {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border-radius: 8px;
+      backface-visibility: hidden;
+      box-shadow: 0 18px 32px rgba(0, 0, 0, 0.24);
+    }
+
+    .back {
+      border: 1px solid rgba(255, 252, 240, 0.25);
+      background:
+        radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.38), transparent 18%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0 12%, transparent 12% 24%, rgba(255, 255, 255, 0.13) 24% 36%, transparent 36%),
+        linear-gradient(135deg, #1c2f27, #163f38 48%, #2b2651);
+      background-size: auto, 30px 30px, auto;
+    }
+
+    .back::after {
+      content: "";
+      width: 34%;
+      aspect-ratio: 1;
+      border: 3px solid rgba(255, 252, 240, 0.86);
+      border-radius: 36%;
+      rotate: 45deg;
+      box-shadow:
+        inset 0 0 0 8px rgba(255, 252, 240, 0.18),
+        0 10px 28px rgba(0, 0, 0, 0.24);
+    }
+
+    .front {
+      transform: rotateY(180deg);
+      border: 1px solid rgba(255, 252, 240, 0.78);
+      background:
+        radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.9), rgba(255, 252, 240, 0.9) 24%, rgba(229, 219, 196, 0.92) 100%);
+    }
+
+    .symbol {
+      width: 58%;
+      height: 58%;
+      border-radius: var(--radius);
+      background: var(--color);
+      filter: drop-shadow(0 14px 12px rgba(0, 0, 0, 0.18));
+      box-shadow: inset 0 -12px 0 rgba(24, 32, 29, 0.16), inset 0 8px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .shape-ring {
+      background: transparent;
+      border: clamp(7px, 1.3vw, 12px) solid var(--color);
+      box-shadow: none;
+    }
+
+    .shape-diamond {
+      border-radius: 8px;
+      transform: rotate(45deg);
+    }
+
+    .shape-star {
+      border-radius: 0;
+      background: var(--color);
+      clip-path: polygon(50% 0%, 62% 34%, 98% 35%, 69% 56%, 79% 91%, 50% 70%, 21% 91%, 31% 56%, 2% 35%, 38% 34%);
+    }
+
+    .shape-triangle {
+      border-radius: 0;
+      background: var(--color);
+      clip-path: polygon(50% 7%, 94% 86%, 6% 86%);
+    }
+
+    .shape-plus {
+      border-radius: 0;
+      clip-path: polygon(36% 0, 64% 0, 64% 36%, 100% 36%, 100% 64%, 64% 64%, 64% 100%, 36% 100%, 36% 64%, 0 64%, 0 36%, 36% 36%);
+    }
+
+    .shape-pill {
+      border-radius: 999px;
+    }
+
+    .shape-squircle {
+      border-radius: 28%;
+    }
+
+    .card.is-matched .front {
+      outline: 4px solid rgba(105, 212, 159, 0.45);
+      box-shadow: 0 0 0 1px rgba(105, 212, 159, 0.35), 0 0 30px rgba(105, 212, 159, 0.28);
+    }
+
+    .card.is-matched {
+      animation: matched 520ms ease both;
+    }
+
+    .message {
+      position: absolute;
+      inset: clamp(14px, 3vw, 28px);
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      border: 1px solid rgba(255, 252, 240, 0.28);
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 24% 18%, rgba(255, 209, 102, 0.28), transparent 34%),
+        radial-gradient(circle at 82% 74%, rgba(105, 212, 159, 0.22), transparent 38%),
+        rgba(20, 20, 17, 0.9);
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.98);
+      transition: opacity 180ms ease, transform 180ms ease;
+      text-align: center;
+      z-index: 2;
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
+      backdrop-filter: blur(22px);
+    }
+
+    .message.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
+    }
+
+    .message h2 {
+      margin: 0 0 8px;
+      font-size: clamp(1.8rem, 4vw, 3.2rem);
+      letter-spacing: 0;
+      color: #ffffff;
+    }
+
+    .message p {
+      margin: 0 0 18px;
+      color: var(--muted);
+    }
+
+    .message button {
+      border: 0;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--coral), #ff9f5a);
+      color: #fffaf0;
+      padding: 12px 18px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 16px 36px rgba(255, 111, 97, 0.28);
+    }
+
+    @keyframes cardIn {
+      from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.96);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes matched {
+      50% {
+        transform: scale(1.04);
+      }
+    }
+
+    @keyframes sheen {
+      0%, 70% {
+        transform: translateX(-100%);
+      }
+
+      100% {
+        transform: translateX(100%);
+      }
+    }
+
+    @media (max-width: 720px) {
+      body {
+        align-items: start;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
+
+      .actions {
+        justify-content: start;
+      }
+
+      .dashboard {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 440px) {
+      .game {
+        width: 100%;
+        padding: 12px;
+      }
+
+      .actions {
+        width: 100%;
+      }
+
+      .board {
+        grid-template-columns: repeat(4, minmax(52px, 1fr));
+        gap: 7px;
+      }
+
+      .stat {
+        min-height: 66px;
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="styles2.css" />
+</head>
+<body>
+  <canvas id="particles" aria-hidden="true"></canvas>
+  <main class="game">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">Focus mode</div>
+        <h1>Memory Game</h1>
+        <p class="subtitle">Shapes, pairs, and one clean win.</p>
+      </div>
+      <div class="actions" aria-label="Game controls">
+        <button class="pill" type="button" data-size="12" aria-pressed="false">Easy</button>
+        <button class="pill" type="button" data-size="16" aria-pressed="true">Medium</button>
+        <button class="pill" type="button" data-size="24" aria-pressed="false">Hard</button>
+        <button class="icon-button" type="button" id="restart" aria-label="Restart game" title="Restart game">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 3-6.7" />
+            <path d="M3 4v6h6" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="dashboard" aria-label="Score">
+      <div class="stat"><span>Moves</span><strong id="moves">0</strong></div>
+      <div class="stat"><span>Pairs</span><strong id="pairs">0 / 8</strong></div>
+      <div class="stat"><span>Time</span><strong id="time">0:00</strong></div>
+      <div class="stat"><span>Best</span><strong id="best">--</strong></div>
+    </section>
+
+    <section class="board-wrap">
+      <div class="board" id="board" aria-label="Memory cards"></div>
+      <div class="message" id="message" role="dialog" aria-modal="true" aria-labelledby="win-title">
+        <div>
+          <h2 id="win-title">You matched them all</h2>
+          <p id="win-copy">A tidy little victory.</p>
+          <button type="button" id="play-again">Play again</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const board = document.querySelector("#board");
+    const movesEl = document.querySelector("#moves");
+    const pairsEl = document.querySelector("#pairs");
+    const timeEl = document.querySelector("#time");
+    const bestEl = document.querySelector("#best");
+    const message = document.querySelector("#message");
+    const winCopy = document.querySelector("#win-copy");
+    const restartButton = document.querySelector("#restart");
+    const playAgainButton = document.querySelector("#play-again");
+    const sizeButtons = [...document.querySelectorAll("[data-size]")];
+    const particleCanvas = document.querySelector("#particles");
+    const particleCtx = particleCanvas.getContext("2d");
+
+    const symbols = [
+      { shape: "shape-ring", color: "#ea6a5f", radius: "50%" },
+      { shape: "shape-diamond", color: "#5a8fd8", radius: "8px" },
+      { shape: "shape-star", color: "#f1b84b", radius: "0" },
+      { shape: "shape-triangle", color: "#62b187", radius: "0" },
+      { shape: "shape-plus", color: "#9a73c9", radius: "0" },
+      { shape: "shape-pill", color: "#ef8f49", radius: "999px" },
+      { shape: "shape-squircle", color: "#3e9f9c", radius: "28%" },
+      { shape: "shape-ring", color: "#9a73c9", radius: "50%" },
+      { shape: "shape-diamond", color: "#f1b84b", radius: "8px" },
+      { shape: "shape-star", color: "#5a8fd8", radius: "0" },
+      { shape: "shape-triangle", color: "#ea6a5f", radius: "0" },
+      { shape: "shape-plus", color: "#62b187", radius: "0" }
+    ];
+
+    let cardCount = 16;
+    let firstCard = null;
+    let secondCard = null;
+    let locked = false;
+    let moves = 0;
+    let matches = 0;
+    let seconds = 0;
+    let timer = null;
+    let particles = [];
+    let particleFrame = null;
+
+    function shuffle(items) {
+      const shuffled = [...items];
+      for (let i = shuffled.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    }
+
+    function formatTime(totalSeconds) {
+      const minutes = Math.floor(totalSeconds / 60);
+      const remaining = String(totalSeconds % 60).padStart(2, "0");
+      return `${minutes}:${remaining}`;
+    }
+
+    function bestKey() {
+      return `memory-best-${cardCount}`;
+    }
+
+    function getBest() {
+      const saved = localStorage.getItem(bestKey());
+      return saved ? Number(saved) : null;
+    }
+
+    function updateStats() {
+      const totalPairs = cardCount / 2;
+      const best = getBest();
+      movesEl.textContent = moves;
+      pairsEl.textContent = `${matches} / ${totalPairs}`;
+      timeEl.textContent = formatTime(seconds);
+      bestEl.textContent = best === null ? "--" : `${best} moves`;
+    }
+
+    function startTimer() {
+      if (timer) {
+        return;
+      }
+
+      timer = setInterval(() => {
+        seconds += 1;
+        updateStats();
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timer);
+      timer = null;
+    }
+
+    function setColumns() {
+      const isNarrow = window.matchMedia("(max-width: 440px)").matches;
+      const columns = isNarrow ? 4 : cardCount === 24 ? 6 : 4;
+      board.style.setProperty("--columns", columns);
+    }
+
+    function resizeParticles() {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      particleCanvas.width = Math.floor(window.innerWidth * ratio);
+      particleCanvas.height = Math.floor(window.innerHeight * ratio);
+      particleCanvas.style.width = `${window.innerWidth}px`;
+      particleCanvas.style.height = `${window.innerHeight}px`;
+      particleCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
+
+    function createParticle(isBurst = false) {
+      const colors = ["#ffd166", "#69d49f", "#6ea8ff", "#ff6f61", "#b98cff"];
+      return {
+        x: isBurst ? window.innerWidth / 2 + (Math.random() - 0.5) * 260 : Math.random() * window.innerWidth,
+        y: isBurst ? window.innerHeight / 2 + (Math.random() - 0.5) * 160 : Math.random() * window.innerHeight,
+        radius: isBurst ? Math.random() * 3 + 2 : Math.random() * 2.4 + 0.8,
+        speedX: (Math.random() - 0.5) * (isBurst ? 4 : 0.35),
+        speedY: (Math.random() - 0.5) * (isBurst ? 4 : 0.35) - (isBurst ? 1.2 : 0),
+        alpha: isBurst ? 0.95 : Math.random() * 0.42 + 0.2,
+        decay: isBurst ? Math.random() * 0.012 + 0.008 : 0,
+        color: colors[Math.floor(Math.random() * colors.length)]
+      };
+    }
+
+    function seedParticles() {
+      const amount = window.innerWidth < 600 ? 42 : 78;
+      particles = Array.from({ length: amount }, () => createParticle());
+    }
+
+    function drawParticles() {
+      particleCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      particles.forEach((particle, index) => {
+        particle.x += particle.speedX;
+        particle.y += particle.speedY;
+        particle.alpha -= particle.decay;
+
+        if (particle.x < -20) particle.x = window.innerWidth + 20;
+        if (particle.x > window.innerWidth + 20) particle.x = -20;
+        if (particle.y < -20) particle.y = window.innerHeight + 20;
+        if (particle.y > window.innerHeight + 20) particle.y = -20;
+
+        if (particle.alpha <= 0) {
+          particles.splice(index, 1);
+          return;
+        }
+
+        particleCtx.save();
+        particleCtx.globalAlpha = particle.alpha;
+        particleCtx.fillStyle = particle.color;
+        particleCtx.shadowColor = particle.color;
+        particleCtx.shadowBlur = 18;
+        particleCtx.beginPath();
+        particleCtx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+        particleCtx.fill();
+        particleCtx.restore();
+      });
+
+      particleFrame = requestAnimationFrame(drawParticles);
+    }
+
+    function burstParticles(amount = 28) {
+      particles.push(...Array.from({ length: amount }, () => createParticle(true)));
+    }
+
+    function startParticles() {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        return;
+      }
+
+      resizeParticles();
+      seedParticles();
+      cancelAnimationFrame(particleFrame);
+      drawParticles();
+    }
+
+    function createCard(symbol, index) {
+      const card = document.createElement("button");
+      card.className = "card";
+      card.type = "button";
+      card.dataset.id = symbol.id;
+      card.setAttribute("aria-label", "Hidden card");
+      card.innerHTML = `
+        <span class="card-inner">
+          <span class="face back"></span>
+          <span class="face front">
+            <span class="symbol ${symbol.shape}" style="--color: ${symbol.color}; --radius: ${symbol.radius};"></span>
+          </span>
+        </span>
+      `;
+      card.addEventListener("click", () => flipCard(card));
+      card.style.animationDelay = `${index * 16}ms`;
+      return card;
+    }
+
+    function buildDeck() {
+      const pairCount = cardCount / 2;
+      const pairs = symbols.slice(0, pairCount).flatMap((symbol, index) => [
+        { ...symbol, id: `pair-${index}` },
+        { ...symbol, id: `pair-${index}` }
+      ]);
+      return shuffle(pairs);
+    }
+
+    function resetTurn() {
+      firstCard = null;
+      secondCard = null;
+      locked = false;
+    }
+
+    function flipCard(card) {
+      if (locked || card === firstCard || card.classList.contains("is-matched")) {
+        return;
+      }
+
+      startTimer();
+      card.classList.add("is-flipped");
+      card.setAttribute("aria-label", "Revealed card");
+
+      if (!firstCard) {
+        firstCard = card;
+        return;
+      }
+
+      secondCard = card;
+      locked = true;
+      moves += 1;
+      updateStats();
+
+      if (firstCard.dataset.id === secondCard.dataset.id) {
+        keepMatch();
+      } else {
+        hideMismatch();
+      }
+    }
+
+    function keepMatch() {
+      firstCard.classList.add("is-matched");
+      secondCard.classList.add("is-matched");
+      firstCard.disabled = true;
+      secondCard.disabled = true;
+      matches += 1;
+      burstParticles(10);
+      updateStats();
+
+      if (matches === cardCount / 2) {
+        setTimeout(finishGame, 420);
+      }
+
+      resetTurn();
+    }
+
+    function hideMismatch() {
+      setTimeout(() => {
+        firstCard.classList.remove("is-flipped");
+        secondCard.classList.remove("is-flipped");
+        firstCard.setAttribute("aria-label", "Hidden card");
+        secondCard.setAttribute("aria-label", "Hidden card");
+        resetTurn();
+      }, 760);
+    }
+
+    function finishGame() {
+      stopTimer();
+      const previousBest = getBest();
+      if (previousBest === null || moves < previousBest) {
+        localStorage.setItem(bestKey(), String(moves));
+      }
+      updateStats();
+      winCopy.textContent = `Finished in ${moves} moves and ${formatTime(seconds)}.`;
+      burstParticles(70);
+      message.classList.add("is-visible");
+    }
+
+    function newGame() {
+      stopTimer();
+      moves = 0;
+      matches = 0;
+      seconds = 0;
+      resetTurn();
+      setColumns();
+      board.innerHTML = "";
+      message.classList.remove("is-visible");
+      buildDeck().forEach((symbol, index) => board.appendChild(createCard(symbol, index)));
+      updateStats();
+    }
+
+    sizeButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        cardCount = Number(button.dataset.size);
+        sizeButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+        newGame();
+      });
+    });
+
+    restartButton.addEventListener("click", newGame);
+    playAgainButton.addEventListener("click", newGame);
+    window.addEventListener("resize", () => {
+      setColumns();
+      resizeParticles();
+    });
+    startParticles();
+    newGame();
+  </script>
+</body>
+</html>
